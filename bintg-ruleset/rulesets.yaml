@@ -1,0 +1,437 @@
+extends: [[spectral:oas, all], ["@stoplight/spectral-owasp-ruleset", all]]
+
+# Custom rules for Beaulieu International Group API Design Guidelines
+rules:
+  # Disable existing Rules in this section
+  license-url: off
+  info-license: off
+  openapi-tags-alphabetical: off
+  operation-tags: off
+  openapi-tags: off
+  owasp:api4:2023-rate-limit: off
+  
+  # Change the serverity of existing Rules in this section
+  info-contact: error
+  operation-operationId-unique: warn
+  oas3-schema: error
+
+  # Meta Information Rules (Section 4)
+  info-title-required:
+    description: "API must have a unique identifying title"
+    given: $.info
+    severity: error
+    then:
+      field: title
+      function: truthy
+
+  info-description-required:
+    description: "API must have a proper description"
+    given: $.info
+    severity: error
+    then:
+      field: description
+      function: truthy
+
+  info-contact-required:
+    description: "API must have contact information with name, url, and email"
+    given: $.info.contact
+    severity: error
+    then:
+      - field: name
+        function: truthy
+      - field: url
+        function: truthy
+      - field: email
+        function: truthy
+
+  info-x-audience-required:
+    description: "API must specify intended target audience using x-audience"
+    given: $.info
+    severity: error
+    then:
+      field: x-audience
+      function: truthy
+
+  # Versioning Rules (Section 6)
+  semantic-versioning:
+    description: "Version must follow Semantic Versioning (MAJOR.MINOR.PATCH)"
+    given: $.info.version
+    severity: error
+    then:
+      function: pattern
+      functionOptions:
+        match: "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$"
+
+  # OpenAPI Version Rule
+  openapi-version-3:
+    description: "Must use OpenAPI Specification 3.0 or higher"
+    given: $.openapi
+    severity: error
+    then:
+      function: pattern
+      functionOptions:
+        match: "^3\\.[0-9]+\\.[0-9]+$"
+
+  # Path Naming Conventions (Section 6)
+  path-kebab-case:
+    description: "URI paths must use kebab-case"
+    given: $.paths[*]~
+    severity: error
+    then:
+      function: pattern
+      functionOptions:
+        match: "^(\\/[a-z0-9]+(-[a-z0-9]+)*|\\/\\{[a-zA-Z0-9_-]+\\})*$"
+
+  path-plural-collections:
+    description: "Collection resources should use plural nouns"
+    given: $.paths[*]~
+    severity: warn
+    then:
+      function: pattern
+      functionOptions:
+        match: "(s|es|ies)$"
+        
+  path-no-trailing-slash:
+    description: "Paths must not have trailing slashes"
+    given: $.paths[*]~
+    severity: error
+    then:
+      function: pattern
+      functionOptions:
+        notMatch: "\\/$"
+
+  # Request/Response Body Naming (Section 6)
+  property-snake-case:
+    description: "Request/response body properties must use snake_case"
+    given: $..properties[*]~
+    severity: error
+    then:
+      function: pattern
+      functionOptions:
+        match: "^[a-z][a-z0-9_]*$"
+
+  # Array Field Names (Section 6)
+  array-fields-plural:
+    description: "Array properties should have plural names"
+    message: "Array property '{{property}}' should use a plural name"
+    given: $..[?(@.type == 'array')]~
+    severity: warn
+    then:
+      function: pattern
+      functionOptions:
+        match: "(s|es|ies)$"
+
+  # Common Field Names (Section 6)
+  id-field-naming:
+    description: "Identity fields should be named 'id' or suffixed with '_id'"
+    given: $..properties[*]~
+    severity: warn
+    then:
+      function: pattern
+      functionOptions:
+        notMatch: "^(identifier|ID|Id|identity|ident)$"
+
+  material-number-field:
+    description: "Material identifier should be 'material_number' not 'material_id'"
+    given: $..properties[*]~
+    severity: error
+    then:
+      function: pattern
+      functionOptions:
+        notMatch: "^material_id$"
+
+  datetime-field-naming:
+    description: "Date/time fields should use '_at' or '_date' suffix"
+    given: $..properties[?(@.type == 'string' && @.format == 'date')]
+    severity: warn
+    then:
+      function: pattern
+      functionOptions:
+        match: "(_at|_date|_from|_until)$"
+
+  percentage-field-naming:
+    description: "Percentage fields should be suffixed with '_pct'"
+    given: $..properties[*]~
+    severity: info
+    then:
+      function: pattern
+      functionOptions:
+        notMatch: "(_pct)$"
+
+  boolean-field-naming:
+    description: "Boolean fields should start with 'is_' or 'has_'"
+    given: $..properties[?(@.type == 'boolean')]~
+    severity: warn
+    then:
+      function: pattern
+      functionOptions:
+        match: "^(is_|has_)"
+
+  # Data Format Rules (Section 5)
+  datetime-format-iso8601:
+    description: "DateTime fields must use ISO 8601 format with UTC timezone"
+    given: $..properties[?(@.type == 'string' && @.format == 'date-time')]
+    severity: error
+    then:
+      field: example
+      function: pattern
+      functionOptions:
+        match: "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+
+  date-format-iso8601:
+    description: "Date fields must use ISO 8601 format (YYYY-MM-DD)"
+    given: $..properties[?(@.type == 'string' && @.format == 'date')]
+    severity: error
+    then:
+      field: example
+      function: pattern
+      functionOptions:
+        match: "^\\d{4}-\\d{2}-\\d{2}$"
+
+  # HTTP Methods and Status Codes (Section 7)
+  operation-2xx-response:
+    description: "Operations must have at least one 2xx response"
+    given: $.paths[*][*].responses
+    severity: error
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          type: object
+          patternProperties:
+            "^2[0-9]{2}$":
+              type: object
+          minProperties: 1
+
+  operation-4xx-response:
+    description: "Operations should have appropriate 4xx error responses"
+    given: $.paths[*][*].responses
+    severity: warn
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          type: object
+          patternProperties:
+            "^4[0-9]{2}$":
+              type: object
+
+  # Security Rules (Section 8)
+  security-defined:
+    description: "API must have security schemes defined"
+    given: $.components.securitySchemes
+    severity: error
+    then:
+      function: truthy
+
+  operation-security:
+    description: "All operations must have security defined"
+    given: $.paths[*][*]
+    severity: error
+    then:
+      field: security
+      function: truthy
+
+  # Rate Limiting Headers (Section 8)
+  rate-limit-headers:
+    description: "429 responses must include rate limit headers"
+    given: $.paths[*][*].responses.429
+    severity: warn
+    then:
+      field: headers
+      function: schema
+      functionOptions:
+        schema:
+          type: object
+          required:
+            - X-RateLimit-Limit
+            - X-RateLimit-Remaining
+            - X-RateLimit-Reset
+
+  # Pagination (Section 7)
+  pagination-parameters:
+    description: "GET operations on collections should support pagination"
+    given: $.paths.*[get]
+    severity: warn
+    then:
+      field: parameters
+      function: schema
+      functionOptions:
+        schema:
+          type: array
+          contains:
+            type: object
+            properties:
+              name:
+                enum: [limit, offset, page, page_size]
+            required: [name, in]
+
+  # Content Type Validation (Section 8)
+  request-content-type:
+    description: "Request bodies must specify application/json content type"
+    given: $.paths[*][*].requestBody.content
+    severity: error
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          type: object
+          required:
+            - application/json
+
+  response-content-type:
+    description: "Responses must specify application/json content type"
+    given: $.paths[*][*].responses[*].content
+    severity: error
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          type: object
+          required:
+            - application/json
+
+  # String Length Validation (Section 8)
+  string-max-length:
+    description: "String properties should define maxLength"
+    given: $..properties[?(@.type == 'string')]
+    severity: warn
+    then:
+      field: maxLength
+      function: truthy
+
+  # Array Size Validation (Section 8)
+  array-max-items:
+    description: "Array properties should define maxItems"
+    given: $..properties[?(@.type == 'array')]
+    severity: warn
+    then:
+      field: maxItems
+      function: truthy
+
+  # No Acronyms Rule (Section 6)
+  no-acronyms:
+    description: "Avoid using acronyms in field names"
+    given: $..properties[*]~
+    severity: warn
+    then:
+      function: pattern
+      functionOptions:
+        notMatch: "(^|_)(UOM|API|URL|URI|ID|UUID|GUID|XML|JSON|CSV|PDF|DOC|XLS)(_|$)"
+
+  # Optional Fields with Null (Section 6)
+  no-null-for-optional:
+    description: "Optional fields with NULL value should be omitted"
+    given: $..properties[*]
+    severity: info
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          not:
+            properties:
+              default:
+                type: "null"
+
+  # Boolean Not Null (Section 6)
+  boolean-not-nullable:
+    description: "Boolean properties must not be nullable"
+    given: $..properties[?(@.type == 'boolean')]
+    severity: error
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          not:
+            properties:
+              nullable:
+                const: true
+
+  # Description Requirements
+  operation-description:
+    description: "All operations should have descriptions"
+    given: $.paths[*][*]
+    severity: warn
+    then:
+      field: description
+      function: truthy
+
+  parameter-description:
+    description: "All parameters should have descriptions"
+    given: $..parameters[*]
+    severity: warn
+    then:
+      field: description
+      function: truthy
+
+  schema-description:
+    description: "All schemas should have descriptions"
+    given: $.components.schemas[*]
+    severity: info
+    then:
+      field: description
+      function: truthy
+
+  # HTTP Method Usage (Section 7)
+  get-no-request-body:
+    description: "GET operations must not have a request body"
+    given: $.paths[*].get
+    severity: error
+    then:
+      field: requestBody
+      function: falsy
+
+  delete-no-request-body:
+    description: "DELETE operations should not have a request body"
+    given: $.paths[*].delete
+    severity: warn
+    then:
+      field: requestBody
+      function: falsy
+
+  # Language Rule (Section 2)
+  us-english-descriptions:
+    description: "Use US English spelling in descriptions"
+    given: $..description
+    severity: info
+    then:
+      function: pattern
+      functionOptions:
+        notMatch: "(colour|centre|programme|organisation|analyse|licence|defence|behaviour)"
+
+  # Field validation example patterns
+  valid-language-code:
+    description: "Language codes must follow ISO 639-1 (2 letters)"
+    given: $..properties[?@property.match(/language/i)]
+    severity: warn
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          properties:
+            pattern:
+              const: "^[a-z]{2}$"
+
+  valid-country-code:
+    description: "Country codes must follow ISO 3166-1 alpha-2 (2 letters)"
+    given: $..properties[?(@property.match(/country/i) && @.type === 'string')]
+    severity: warn
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          properties:
+            pattern:
+              const: "^[A-Z]{2}$"
+
+  valid-currency-code:
+    description: "Currency codes must follow ISO 4217 (3 letters)"
+    given: $..properties[?(@property.match(/currency/i) && @.type === 'string')]
+    severity: warn
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          properties:
+            pattern:
+              const: "^[A-Z]{3}$"

@@ -1,0 +1,9 @@
+{
+    "devDependencies": {
+        "@stoplight/spectral-cli": "^6.11.1",
+        "@stoplight/spectral-owasp-ruleset": "2.0"
+    },
+    "scripts": {
+        "lint": "spectral lint"
+    }
+}

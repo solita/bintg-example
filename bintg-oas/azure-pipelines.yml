@@ -1,0 +1,45 @@
+trigger:
+  branches:
+    include:
+    - '*'
+
+pr:
+  branches:
+    include:
+    - '*'
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  NODE_VERSION: '18.x'
+  SPECTRAL_REPO: git://solita-internal/bintg-ruleset
+
+steps:
+  # Checkout current repository (with OAS files)
+  - checkout: self
+    displayName: 'Checkout OAS Repository'
+    path: bintg-oas
+
+  # Checkout Spectral configuration repository
+  - checkout: $(SPECTRAL_REPO)
+    displayName: 'Checkout Spectral Config Repository'
+    path: bintg-ruleset
+
+  # Setup Node.js
+  - task: NodeTool@0
+    displayName: 'Setup Node.js'
+    inputs:
+      versionSpec: $(NODE_VERSION)
+
+  # Install Spectral dependencies from config repo
+  - script: |
+      cd $(Agent.BuildDirectory)/bintg-ruleset
+      npm ci
+    displayName: 'Install Spectral'
+
+  # Run Spectral linting
+  - script: |
+      cd $(Agent.BuildDirectory)/bintg-ruleset
+      npm run lint -- $(Agent.BuildDirectory)/bintg-oas/**/*.json --ruleset rulesets.yaml
+    displayName: 'Run Spectral Linting'
